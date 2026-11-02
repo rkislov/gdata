@@ -19,16 +19,20 @@ jobs:
       - run: go vet ./...
   altlinux:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Prepare ALT p10 build and test environment
+        run: docker build --progress=plain -t srk-altlinux10-builder - < packaging/altlinux/Dockerfile
       - run: make altlinux
+        env:
+          ALT_IMAGE: srk-altlinux10-builder
       - name: Install and smoke test RPM on ALT p10
         run: |
-          docker run --rm --platform linux/amd64 -v "$PWD/dist:/dist:ro" alt:p10@sha256:5edc92edf6bc866824427f05834ffff3f815974fc1cd9840e0dda2492d11ce30 sh -ec '
-            apt-get update
+          docker run --rm --platform linux/amd64 -v "$PWD/dist:/dist:ro" srk-altlinux10-builder sh -ec '
             apt-get install -y /dist/*.rpm
             srk version
             srk dev init --dir /tmp/srk-smoke
