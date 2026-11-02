@@ -1,0 +1,154 @@
+@import "tailwindcss";
+@source "./index.html";
+@source "./app.js";
+@source "./lifecycle.js";
+@source "./statistics.js";
+@source "./rescue.js";
+@source "./capture.js";
+@source "./wal-calendar.js";
+@source "./vm.js";
+@source "./protection.js";
+@source "./access.js";
+@source "./access-recovery.js";
+@source "./catalog-backup.js";
+@theme {
+  --color-brand-50: #f0f5e9;
+  --color-brand-100: #e1ecd8;
+  --color-brand-200: #cadfba;
+  --color-brand-300: #a8c98d;
+  --color-brand-400: #83ae6a;
+  --color-brand-500: #457354;
+  --color-brand-600: #285a46;
+  --color-brand-700: #1b473b;
+  --color-brand-800: #173d33;
+  --color-brand-900: #14332b;
+  --color-brand-950: #0c211a;
+  --color-slate-50: #f2f5ed;
+  --color-slate-100: #e7ece2;
+  --color-slate-200: #d7e0d2;
+  --color-slate-300: #b9c8b7;
+  --color-slate-400: #657b67;
+  --color-slate-500: #60735f;
+  --color-slate-600: #475f4e;
+  --color-slate-700: #344f40;
+  --color-slate-800: #20332c;
+  --color-slate-900: #20332c;
+  --color-slate-950: #10251b;
+
+  --font-sans: "Inter", "Segoe UI", Arial, sans-serif;
+}
+@layer base {
+  body {
+    @apply bg-[#f6f7f2] text-slate-800 antialiased;
+  }
+  button,
+  a,
+  input,
+  select {
+    @apply outline-none focus-visible:ring-4 focus-visible:ring-brand-200;
+  }
+  button {
+    cursor: pointer;
+  }
+}
+@layer components {
+  .tile {
+    @apply rounded-3xl border border-white bg-white p-6 shadow-[0_8px_36px_-18px_rgba(27,71,59,0.16)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_42px_-20px_rgba(27,71,59,0.24)];
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50;
+  }
+  .field {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+  }
+  .nav-item {
+    @apply flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-[#c1d1c5] transition hover:bg-white/5 hover:text-white;
+  }
+  .nav-item.active {
+    @apply bg-[#d7ed8c]/15 text-[#d7ed8c];
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .segment {
+    @apply rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition;
+  }
+  .segment.active {
+    @apply bg-white text-brand-700 shadow-sm;
+  }
+  .label {
+    @apply mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500;
+  }
+  .muted {
+    @apply text-sm text-slate-400;
+  }
+}
+dialog {
+  margin: auto;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border: 0;
+  padding: 0;
+  border-radius: 24px;
+  width: min(560px, calc(100vw - 48px));
+  box-shadow: 0 32px 100px #153e3233;
+}
+dialog::backdrop {
+  background: #102d2466;
+  backdrop-filter: blur(5px);
+}
+progress {
+  appearance: none;
+  display: block;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: #e7efdf;
+  color: #285a46;
+}
+progress::-webkit-progress-bar {
+  background: #e7efdf;
+  border-radius: 999px;
+}
+progress::-webkit-progress-value {
+  background: #285a46;
+  border-radius: 999px;
+}
+progress::-moz-progress-bar {
+  background: #285a46;
+  border-radius: 999px;
+}
+progress:not([value]) {
+  background: repeating-linear-gradient(
+    110deg,
+    #e7efdf 0 12px,
+    #c2d5aa 12px 24px
+  );
+}
+.repository-dialog {
+  width: min(960px, calc(100vw - 48px));
+  max-width: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.4;
+  }
+}
+.live-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.access-dialog { padding: 32px; }

@@ -1,0 +1,42 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test -race ./...
+      - run: go vet ./...
+  altlinux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make altlinux
+      - name: Install and smoke test RPM on ALT p10
+        run: |
+          docker run --rm --platform linux/amd64 -v "$PWD/dist:/dist:ro" alt:p10@sha256:5edc92edf6bc866824427f05834ffff3f815974fc1cd9840e0dda2492d11ce30 sh -ec '
+            apt-get update
+            apt-get install -y /dist/*.rpm
+            srk version
+            srk dev init --dir /tmp/srk-smoke
+            for role in manager media agent proxy; do
+              srk --config /tmp/srk-smoke/$role.json $role check-config
+            done
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gdata-srk-altlinux10-x86_64
+          path: dist/*

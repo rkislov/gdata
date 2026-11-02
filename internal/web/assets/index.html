@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>GData — резервное копирование</title>
+    <link rel="stylesheet" href="/app.css" />
+    <script defer src="/statistics.js"></script>
+    <script defer src="/app.js"></script>
+    <script defer src="/lifecycle.js"></script>
+    <script defer src="/vm.js"></script>
+    <script defer src="/kubernetes.js"></script>
+    <script defer src="/kubernetes-checks.js"></script>
+    <script defer src="/protection.js"></script>
+    <script defer src="/access.js"></script>
+ <script defer src="/access-recovery.js"></script>
+ <script defer src="/catalog-backup.js"></script>
+    <script defer src="/replication.js"></script>
+    <script defer src="/wal-replication.js"></script>
+  </head>
+  <body class="font-sans">
+    <div
+      id="login"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-[#f6f7f2] p-6"
+      hidden
+    >
+      <form id="login-form" class="tile w-full max-w-md p-10">
+        <div class="mb-8 flex items-center gap-3">
+          <span
+            class="flex size-12 items-center justify-center rounded-2xl bg-brand-600 text-xl font-bold text-white"
+            >G</span
+          ><span class="text-2xl font-bold tracking-tight"
+            >GData<span class="ml-2 text-sm font-normal text-slate-400"
+              >СРК</span
+            ></span
+          >
+        </div>
+        <h1 class="text-2xl font-semibold">Добро пожаловать</h1>
+        <p class="mb-7 mt-2 text-sm leading-6 text-slate-500">
+          Управление резервными копиями вашей инфраструктуры.
+        </p>
+        <label class="label" for="username">Учётная запись</label><input id="username" name="username" class="field mb-4" autocomplete="username" placeholder="bootstrap"><label class="label" for="password">Пароль</label
+        ><input
+          id="password"
+          name="password"
+          type="password"
+          class="field"
+          autocomplete="current-password"
+          required
+          minlength="16"
+        />
+        <p id="login-error" class="my-3 text-sm text-rose-600" role="alert"></p>
+        <button class="btn w-full" type="submit">
+          Войти в систему <span aria-hidden="true">↗</span>
+        </button>
+        <p class="mt-7 text-xs leading-5 text-slate-400">
+          Защищенное соединение · Apache 2.0<br />© 2026 Кислов Роман Сергеевич
+        </p>
+      </form>
+    </div>
+    <div class="min-h-screen lg:pl-64" id="shell">
+      <aside
+        class="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-[#1b473b] p-5 lg:flex"
+      >
+        <a href="/" class="mb-12 mt-3 flex items-center gap-3 px-3 text-white"
+          ><span
+            class="flex size-10 items-center justify-center rounded-xl bg-[#d7ed8c] text-[#1b473b] text-xl font-bold"
+            >G</span
+          ><span class="text-xl font-semibold tracking-tight"
+            >GData<span class="ml-2 text-xs font-normal text-[#b9cdbb]"
+              >СРК</span
+            ></span
+          ></a
+        >
+        <p
+          class="mb-3 px-4 text-[10px] font-semibold uppercase tracking-[.2em] text-[#b9cdbb]"
+        >
+          Рабочее пространство
+        </p>
+        <nav id="nav" class="space-y-1" aria-label="Основная навигация">
+          <button class="nav-item active" data-page="overview">
+            <span aria-hidden="true">◫</span> Обзор</button
+          ><button class="nav-item" data-page="activity">
+            <span aria-hidden="true">◷</span> Активность</button
+          ><button class="nav-item" data-page="jobs">
+            <span aria-hidden="true">▤</span> Задания</button
+          ><button class="nav-item" data-page="storage">
+            <span aria-hidden="true">▱</span> Хранилища</button
+          ><button class="nav-item" data-page="nodes">
+            <span aria-hidden="true">⌘</span> Компоненты</button
+          ><button class="nav-item" data-page="audit">
+            <span aria-hidden="true">☷</span> Аудит
+          </button>
+        </nav>
+        <div
+          class="mt-auto rounded-2xl border border-white/5 bg-white/[.03] p-4"
+        >
+          <div class="mb-2 flex items-center gap-2 text-xs text-slate-300">
+            <span class="size-1.5 rounded-full bg-emerald-400"></span>
+            Защищенный контур
+          </div>
+          <p class="text-[11px] leading-5 text-[#b9cdbb]">
+            mTLS · Изоляция инсталляции<br />Go + Tailwind CSS
+          </p>
+        </div>
+        <p class="mt-5 px-3 text-[10px] leading-5 text-[#b9cdbb]">
+          © 2026 Кислов Роман Сергеевич<br />Apache License 2.0 · v0.9.2
+        </p>
+      </aside>
+      <header
+        class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/60 bg-white/60 px-7 py-5 backdrop-blur md:px-10"
+      >
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-slate-400">Рабочее пространство</span
+          ><span class="text-slate-300">/</span
+          ><span id="breadcrumb" class="font-medium">Обзор</span>
+        </div>
+        <div class="flex items-center gap-5">
+          <span
+            id="connection"
+            class="flex items-center gap-2 text-xs text-slate-500"
+            ><span class="live-dot size-1.5 rounded-full bg-emerald-400"></span>
+            Подключение…</span
+          ><button
+            id="logout"
+            class="flex items-center gap-2 text-sm text-slate-600"
+            title="Выйти"
+          >
+            <span
+              class="flex size-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700"
+              >АД</span
+            ><span>Администратор</span>
+          </button>
+        </div>
+      </header>
+      <main class="mx-auto max-w-[1600px] px-7 py-9 md:px-10">
+        <div class="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p
+              class="mb-2 text-[11px] font-semibold uppercase tracking-[.18em] text-brand-500"
+              id="eyebrow"
+            >
+              Ваши данные под контролем
+            </p>
+            <h1
+              id="page-title"
+              class="text-3xl font-semibold tracking-tight text-slate-900"
+            >
+              Обзор системы
+            </h1>
+            <p id="page-description" class="mt-2 text-sm text-slate-500">
+              Копии, операции и состояние инфраструктуры в одном месте.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="wal-replication-policies" class="btn-secondary">Репликация WAL</button>
+            <button id="new-vm" class="btn-secondary">Бэкап ВМ</button>
+            <button id="new-capture" class="btn-secondary">Диск · SRK Rescue</button>
+            <button id="export" class="btn-secondary">↓ CSV</button
+            ><button id="export-xlsx" class="btn-secondary">↓ Excel</button
+            ><button id="new-job" class="btn">＋ Создать задание</button>
+          </div>
+        </div>
+        <div
+          id="notice"
+          class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800"
+          hidden
+          role="alert"
+        ></div>
+        <div id="content" aria-live="polite">
+          <div class="tile text-sm text-slate-400">
+            Подключаемся к системе управления…
+          </div>
+        </div>
+      </main>
+    </div>
+    <dialog id="job-dialog">
+      <form id="job-form" class="p-8">
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Новое задание</h2>
+          <button
+            type="button"
+            data-close="job-dialog"
+            class="rounded-lg px-3 py-1 text-xl text-slate-400"
+            aria-label="Закрыть"
+          >
+            ×
+          </button>
+        </div>
+        <p id="job-description" class="mb-6 text-sm leading-6 text-slate-500">
+          Файловое копирование через агент. Чтение работающих файлов без снимка;
+          приложение не замораживается.
+        </p>
+        <div class="space-y-4">
+          <label class="block"
+            ><span class="label">Источник данных</span
+            ><select name="type" id="job-type" class="field">
+              <option value="files">Файлы и каталоги</option>
+              <option value="disk-image">RAW-файл · через агент</option>
+              <option value="kubernetes">Kubernetes · объекты и PVC по профилю</option>
+              <option value="longhorn">Longhorn · резервные копии PVC</option>
+              <option value="s3">S3 · MinIO / Ceph</option>
+                <option value="mysql">MySQL / MariaDB · логический дамп</option>
+                <option value="postgresql">PostgreSQL · горячая копия</option>
+            </select></label
+          >
+          <label class="block"
+            ><span class="label">Название</span
+            ><input
+              name="name"
+              class="field"
+              placeholder="Например, документы отдела"
+              required
+              maxlength="200"
+          /></label>
+          <div class="grid grid-cols-2 gap-4">
+            <label
+              ><span class="label">Агент</span
+              ><select
+                name="agent_id"
+                id="agent-select"
+                class="field"
+                required
+              ></select></label
+            ><label
+              ><span class="label">Медиасервер</span
+              ><select
+                name="media_id"
+                id="media-select"
+                class="field"
+                required
+              ></select
+            ></label>
+          </div>
+          <label class="block"
+            ><span class="label" id="source-label">Путь на агенте</span
+            ><input
+              name="source"
+              id="job-source"
+              list="postgresql-profiles"
+              class="field"
+              placeholder="/srv/data"
+              required
+            /><datalist id="postgresql-profiles"></datalist
+            ><span id="source-hint" class="mt-1 block text-xs text-slate-400"
+              >Должен входить в allowed_roots конфигурации агента.</span
+            ></label
+          >
+          <div class="grid grid-cols-2 gap-4">
+            <label
+              ><span class="label">Тип копии</span
+              ><select name="mode" class="field">
+                <option value="full">Полная</option>
+                <option value="incremental">Инкрементальная</option>
+                <option value="differential">Дифференциальная</option>
+              </select></label
+            ><label
+              ><span class="label">Хранение в днях</span
+              ><input
+                name="retention_days"
+                class="field"
+                type="number"
+                min="1"
+                max="36500"
+                value="30"
+                required
+            /></label>
+          </div>
+          <label class="block"
+            ><span class="label">Расписание</span
+            ><select name="interval_seconds" class="field">
+              <option value="86400">Каждые 24 часа</option>
+              <option value="3600">Каждый час</option>
+              <option value="604800">Каждые 7 дней</option>
+              <option value="0">Только вручную</option>
+            </select></label
+          >
+        </div>
+        <p id="job-error" class="mt-4 text-sm text-rose-600" role="alert"></p>
+        <div class="mt-7 flex justify-end gap-3">
+          <button type="button" data-close="job-dialog" class="btn-secondary">
+            Отмена</button
+          ><button class="btn" type="submit">Создать задание</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="detail-dialog">
+      <div class="p-8">
+        <div class="mb-5 flex justify-between">
+          <h2 class="text-xl font-semibold">Подробности операции</h2>
+          <button
+            data-close="detail-dialog"
+            class="px-3 text-xl text-slate-400"
+            aria-label="Закрыть"
+          >
+            ×
+          </button>
+        </div>
+        <div id="detail-content"></div>
+      </div>
+    </dialog>
+    <dialog id="restore-dialog">
+      <form id="restore-form" class="p-8">
+        <h2 class="text-xl font-semibold">Восстановить копию</h2>
+        <p id="restore-description" class="mb-6 mt-2 text-sm leading-6 text-slate-500">
+          Данные будут записаны в новый каталог на исходном агенте. Каталог не
+          должен существовать и должен входить в restore_roots.
+        </p>
+        <label class="label" for="destination">Путь назначения</label
+        ><input
+          id="destination"
+          name="destination"
+          class="field"
+          required
+          placeholder="/srv/restores/recovery-001"
+        />
+        <section
+          id="pitr-options"
+          class="mt-5 space-y-4 rounded-2xl bg-brand-50 p-4"
+          hidden
+        >
+          <label class="flex items-center gap-3 text-sm font-medium"
+            ><input
+              type="checkbox"
+              id="pitr-enabled"
+              class="size-4 accent-brand-600"
+            />
+            Восстановить на заданное время (PITR)</label
+          >
+          <label class="block"
+            ><span class="label">Момент времени · локальный часовой пояс</span
+            ><input
+              id="pitr-target"
+              type="datetime-local"
+              step="0.001"
+              class="field"
+              disabled
+          /></label>
+          <label class="flex items-center gap-3 text-xs"
+            ><input type="checkbox" id="pitr-inclusive" checked disabled />
+            Включать транзакцию с точно совпадающим временем</label
+          >
+          <p class="text-xs leading-5 text-brand-700">
+            WAL будет проверен и применен в изолированном процессе без сетевых
+            слушателей. Успех означает достижение цели и остановленный кластер.
+            Исходная конфигурация сохраняется отдельно.
+          </p>
+        </section>
+        <p
+          id="restore-error"
+          class="mt-4 text-sm text-rose-600"
+          role="alert"
+        ></p>
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            data-close="restore-dialog"
+            class="btn-secondary"
+          >
+            Отмена</button
+          ><button type="submit" class="btn">Восстановить</button>
+        </div>
+      </form>
+    </dialog>
+  <script src="/wal-calendar.js" defer></script>
+<script src="/rescue.js" defer></script>
+<script src="/capture.js" defer></script>
+<script src="/tape.js" defer></script>
+<script src="/removable.js" defer></script>
+</body>
+</html>

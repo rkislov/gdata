@@ -1,0 +1,1538 @@
+openapi: 3.1.0
+info:
+  title: GData SRK API
+  version: 0.9.2
+  description: "Файлы, PostgreSQL/WAL/PITR, SRK Rescue, OpenStack/Tionix, oVirt, Proxmox/WebDAV, OpenNebula/HTTPS, S3 и MySQL/MariaDB. HTTPS/TLS 1.3; компоненты используют mTLS, аварийный клиент — сертификатный pin и ограниченные разрешения."
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  contact:
+    name: Кислов Роман Сергеевич
+servers:
+  - url: https://localhost:8443
+security:
+  - clientCertificate: []
+  - webSession: []
+paths:
+  /v1/protection:
+    get:
+      summary: Карточки защищённости 3-2-1 по текущим каталогам
+      responses:
+        "200": { description: "at, settings, cards, observations, history_truncated; см. docs/protection.md" }
+        "403": { description: Недостаточно прав }
+  /v1/protection/settings:
+    get:
+      summary: Площадки, хранилища и требования защиты
+      responses:
+        "200": { description: "version, sites, storages, policies" }
+    put:
+      summary: Сохранить настройки защиты с контролем версии
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, sites, storages, policies]
+              properties:
+                version: { type: integer, minimum: 0 }
+                sites: { type: array, maxItems: 100, items: { type: object } }
+                storages: { type: array, maxItems: 500, items: { type: object } }
+                policies: { type: array, maxItems: 10000, items: { type: object } }
+      responses:
+        "200": { description: Новая версия настроек }
+        "400": { description: Некорректные ссылки или параметры }
+        "403": { description: Требуются административные права }
+        "409": { description: Версия устарела }
+  /v1/kubernetes-checks:
+    get:
+      summary: Политики плановой проверки Kubernetes/Longhorn и последние отчёты
+      responses:
+        "200": { description: "Массив policy и last_run; подробная схема в docs/kubernetes-longhorn.md" }
+    post:
+      summary: Создать или обновить политику проверки восстановления
+      description: "Администратор. ID определяется заданием, профилем и исходным namespace. Включённая политика запускается при следующем проходе планировщика; enabled=false отменяет ожидающие проверки."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job_id, profile, source_namespace, namespace_prefix, interval_seconds, timeout_seconds, enabled]
+              properties:
+                job_id: { type: string, minLength: 32, maxLength: 32 }
+                profile: { type: string }
+                source_namespace: { type: string }
+                namespace_prefix: { type: string, maxLength: 30 }
+                interval_seconds: { type: integer, minimum: 600, maximum: 31536000 }
+                timeout_seconds: { type: integer, minimum: 10, maximum: 7200 }
+                enabled: { type: boolean }
+                keep_on_failure: { type: boolean }
+                http:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [service, port, path, expected_status]
+                    properties:
+                      service: { type: string }
+                      port: { type: integer, minimum: 1, maximum: 65535 }
+                      path: { type: string }
+                      expected_status: { type: integer, minimum: 200, maximum: 299 }
+                      contains: { type: string, maxLength: 4096 }
+      responses:
+        "200": { description: Сохранённая политика }
+        "400": { description: Некорректная политика или тип задания }
+        "403": { description: Недостаточно прав }
+  /v1/media/{media}/tape:
+    parameters:
+      - { name: media, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Инвентаризация ленточного эмулятора, приводы, кассеты и копии
+      responses:
+        "200":
+          { description: Library, backend emulator, hardware_qualified false }
+        "409": { description: Библиотека не настроена или недоступна }
+  /v1/media/{media}/tape/operations:
+    parameters:
+      - { name: media, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Очередь операций кассет; администратор, аудит, см. docs/tape-v09.md
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, barcode]
+              properties:
+                action:
+                  {
+                    type: string,
+                    enum:
+                      [
+                        load,
+                        unload,
+                        label,
+                        write,
+                        restore,
+                        verify,
+                        import,
+                        erase,
+                        recycle,
+                        hold,
+                        release-hold,
+                      ],
+                  }
+                barcode: { type: string }
+                confirm:
+                  {
+                    type: string,
+                    description: Точный штрихкод для destructive actions,
+                  }
+                reason: { type: string }
+                label: { type: string }
+                drive_id: { type: string }
+                snapshot_id: { type: string }
+                copy_id: { type: string }
+                agent_id: { type: string }
+                retention_days: { type: integer, minimum: 1, maximum: 36500 }
+                erase_mode: { type: string, enum: [quick, long] }
+                hold: { type: boolean }
+      responses:
+        "202":
+          { description: Run; прогресс и журнал через стандартные API runs }
+        "400": { description: Некорректное подтверждение или параметры }
+        "403": { description: Требуются права администратора }
+  /v1/wal-replication-policies:
+    get:
+      summary: Непрерывные политики WAL с последними запусками; администратор или аудитор
+      responses:
+        "200":
+          {
+            description: Массив объектов policy,
+            last_run и lag; pending_files/pending_bytes/pending_age_seconds равны null при неизвестном состоянии источника,
+          }
+        "403": { $ref: "#/components/responses/Denied" }
+  /v1/runs/{id}/wal-replication:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Создать или обновить политику для существующей базовой реплики PostgreSQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                interval_seconds:
+                  { type: integer, minimum: 30, maximum: 3600, default: 30 }
+                enabled: { type: boolean, default: true }
+      responses:
+        "201": { description: Сохранённая политика WAL }
+        "409":
+          {
+            description: Требуется пригодная базовая реплика PostgreSQL с archive_id,
+          }
+  /v1/wal-replication-policies/{id}/enabled:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Включить или приостановить политику WAL; ожидающие запуска задания отменяются при паузе
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "202": { description: Сохранённая политика }
+  /v1/wal-replication-policies/{id}/run:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Запросить ближайшую синхронизацию включённой политики
+      responses:
+        "202":
+          {
+            description: Запрос принят; планировщик исключает перекрытие запусков одной политики,
+          }
+        "409": { description: Политика выключена }
+  /v1/wal-replication-policies/{id}/release-protection:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Явно снять постоянную защиту WAL приостановленной политики; администратор, аудит
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, confirm]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+                confirm: { type: boolean, const: true }
+      responses:
+        "200":
+          {
+            description: Защита снята; обычная очистка может удалить неподтверждённые WAL,
+          }
+        "409":
+          {
+            description: Политика включена,
+            запуск активен или источник недоступен,
+          }
+  /v1/wal-replications/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Внутренний media pull WAL; только mTLS manager с архивным source grant
+      responses:
+        "200":
+          {
+            description: Проверенный набор WAL и календарь приёмника; пропуски могут оставаться,
+          }
+        "403": { $ref: "#/components/responses/Denied" }
+        "422":
+          {
+            description: Ошибка передачи или целостности; неполный сегмент не публикуется,
+          }
+  /v1/runs/{id}/replicate:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Реплицировать пригодную копию на другой медиасервер; только администратор
+      description: Прямая mTLS-передача, SHA-256, самостоятельный полный манифест и независимый срок хранения. Поддерживается Idempotency-Key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_media_id, retention_days]
+              properties:
+                target_media_id: { type: string }
+                retention_days: { type: integer, minimum: 1, maximum: 36500 }
+                include_wal:
+                  {
+                    type: boolean,
+                    default: false,
+                    description: Для PostgreSQL создать непрерывную политику после репликации базы,
+                  }
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+        "400":
+          {
+            description: Неверные параметры или источник совпадает с приёмником,
+          }
+        "403": { $ref: "#/components/responses/Denied" }
+        "409":
+          {
+            description: Источник недоступен или просрочен; конфликт идемпотентности,
+          }
+  /v1/runs/{id}/reconcile-replication:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Сверить устойчивую квитанцию приёмника и зарегистрировать завершённую реплику
+      responses:
+        "200": { $ref: "#/components/responses/Run" }
+        "403": { $ref: "#/components/responses/Denied" }
+        "409":
+          {
+            description: Нет соответствующей завершённой реплики или операция ещё выполняется,
+          }
+        "422": { description: Целевые блоки не прошли проверку }
+  /v1/replications/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Состояние передачи или сохранённая квитанция на media; manager/admin/auditor mTLS
+      responses:
+        "200":
+          {
+            description: Result с фазой,
+            процентом и необязательной квитанцией replica,
+          }
+        "404": { description: Операция отсутствует }
+    post:
+      summary: Внутренняя операция приёмника; только mTLS manager с ограниченным source grant
+      description: RunID, параметры replication, SourceURL/ID/repository/hash, audience-bound read grant и крайний срок lease. Секреты не включаются в публичный каталог.
+      responses:
+        "200": { description: Проверенная квитанция репликации }
+        "403": { $ref: "#/components/responses/Denied" }
+        "409": { description: Операция уже активна }
+        "422":
+          {
+            description: Повреждение или другая ошибка передачи; новая копия не опубликована,
+          }
+  /v1/dav/sessions/{id}:
+    parameters:
+      - {
+          name: id,
+          in: path,
+          required: true,
+          schema: { type: string, pattern: "^[a-f0-9]{32}$" },
+        }
+    post:
+      summary: Создать сессию WebDAV на media; только назначенный proxy с mTLS и Bearer grant задания
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user, max_bytes]
+              properties:
+                user: { type: string }
+                max_bytes: { type: integer, minimum: 1, maximum: 4398046511104 }
+      responses:
+        "201":
+          { description: Изолированная backup или read-only restore сессия }
+        "403": { $ref: "#/components/responses/Denied" }
+        "409": { description: Транспорт отключён или конфликт сессии }
+    delete:
+      summary: Закрыть собственную сессию; mTLS proxy, grant может быть просрочен
+      responses:
+        "200": { description: Сессия закрыта }
+        "403": { $ref: "#/components/responses/Denied" }
+        "409":
+          { description: Активная запись или неопределённое владение файлами }
+  /v1/dav/sessions/{id}/seal:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Заморозить завершённый VMA Zstandard архив и вычислить SHA-256; write grant владельца
+      responses:
+        "200": { description: Метаданные неизменяемого архива }
+        "403": { $ref: "#/components/responses/Denied" }
+        "409": { description: Запись ещё активна или архив не завершён }
+  /v1/dav/sessions/{id}/archive:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Читать sealed архив на proxy; write grant владельца
+      responses:
+        "200": { description: Поток VMA Zstandard }
+        "206": { description: Диапазон потока }
+        "403": { $ref: "#/components/responses/Denied" }
+  /v1/status:
+    get:
+      summary: Состояние сервиса и лимиты системы управления
+      responses:
+        "200":
+          description: >-
+            Статус компонента с метриками host; управление также возвращает counts,
+            агент — operations и postgresql_profiles.
+        "403": { $ref: "#/components/responses/Denied" }
+  /healthz:
+    get:
+      summary: Авторизованная проверка доступности
+      responses:
+        "200": { description: Сервис готов }
+        "503": { description: Каталог недоступен }
+  /v1/login:
+    post:
+      summary: Веб-вход администратора; обязательный Origin совпадает с адресом сервиса
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, writeOnly: true }
+      responses:
+        "200": { description: Установлена Secure HttpOnly cookie srk_session }
+        "403": { $ref: "#/components/responses/Denied" }
+        "429": { description: Слишком много попыток }
+  /v1/logout:
+    post:
+      summary: Завершить веб-сессию; обязательный Origin
+      responses:
+        "200": { description: Сессия удалена }
+  /v1/jobs:
+    get:
+      summary: Список заданий
+      responses:
+        "200":
+          description: Задания
+          content:
+            application/json:
+              schema:
+                { type: array, items: { $ref: "#/components/schemas/Job" } }
+    post:
+      summary: Создать файловое или PostgreSQL-задание; admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Job" }
+      responses:
+        "201": { description: Задание создано }
+        "400":
+          {
+            description: Недопустимые параметры или незарегистрированные компоненты,
+          }
+  /v1/jobs/{id}/run:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    post:
+      summary: Поставить копирование в очередь
+      parameters: [{ $ref: "#/components/parameters/Idempotency" }]
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+  /v1/jobs/{id}/enabled:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    post:
+      summary: Включить или отключить расписание
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200": { description: Новая версия задания }
+  /v1/runs:
+    get:
+      summary: Постраничная история; сортировка created_at и id по убыванию
+      parameters:
+        - {
+            in: query,
+            name: limit,
+            schema: { type: integer, minimum: 1, maximum: 1000, default: 200 },
+          }
+        - {
+            in: query,
+            name: offset,
+            schema:
+              { type: integer, minimum: 0, maximum: 10000000, default: 0 },
+          }
+        - { $ref: "#/components/parameters/Scope" }
+        - { $ref: "#/components/parameters/Status" }
+        - { $ref: "#/components/parameters/Search" }
+        - { $ref: "#/components/parameters/From" }
+        - { $ref: "#/components/parameters/To" }
+      responses:
+        "200":
+          description: Запуски
+          content:
+            application/json:
+              schema:
+                { type: array, items: { $ref: "#/components/schemas/Run" } }
+  /v1/runs/{id}:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    get:
+      summary: Операция и ее результат
+      responses:
+        "200": { $ref: "#/components/responses/Run" }
+  /v1/runs/{id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    post:
+      summary: Отменить ожидающую или выполняющуюся операцию
+      responses:
+        "202": { description: Запрошена отмена }
+        "409":
+          { description: Операция уже завершена или недоступен ее владелец }
+  /v1/runs/{id}/restore:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    post:
+      summary: Восстановить в новый каталог, ВМ, S3-префикс или новую SQL-базу
+      parameters: [{ $ref: "#/components/parameters/Idempotency" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              anyOf:
+                - { required: [destination] }
+                - { required: [vm_restore] }
+              properties:
+                vm_restore: { $ref: "#/components/schemas/VMRestoreRequest" }
+                pitr: { $ref: "#/components/schemas/PITRRequest" }
+                destination:
+                  {
+                    type: string,
+                    description: "Путь внутри restore_roots, s3://PROFILE/new-prefix/ или mysql://PROFILE/new_database",
+                  }
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+        "409": { description: Непригодная или просроченная исходная копия }
+  /v1/runs/{id}/verify:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    post:
+      summary: Поставить полную проверку дисковой копии в очередь
+      parameters: [{ $ref: "#/components/parameters/Idempotency" }]
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+  /v1/nodes:
+    get:
+      summary: Зарегистрированные компоненты; last_seen старше 30 секунд означает отсутствие актуального heartbeat
+      responses:
+        "200": { description: Массив узлов с role, id, url, last_seen, status }
+  /v1/nodes/heartbeat:
+    post:
+      summary: Сигнал компонента; role и id обязаны совпадать с его сертификатом
+      security: [{ clientCertificate: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, role, url]
+              properties:
+                id: { type: string }
+                role: { type: string, enum: [agent, media, proxy] }
+                url: { type: string, format: uri }
+                status: { type: object }
+      responses:
+        "200": { description: Сигнал принят }
+  /v1/audit:
+    get:
+      summary: Последние 500 записей аудита; старые данные сохраняются в PostgreSQL
+      responses:
+        "200": { description: Массив записей аудита }
+  /v1/reports/operations.{format}:
+    parameters:
+      - {
+          in: path,
+          name: format,
+          required: true,
+          schema: { type: string, enum: [csv, xlsx] },
+        }
+      - { $ref: "#/components/parameters/Scope" }
+      - { $ref: "#/components/parameters/Status" }
+      - { $ref: "#/components/parameters/Search" }
+      - { $ref: "#/components/parameters/From" }
+      - { $ref: "#/components/parameters/To" }
+    get:
+      summary: Все операции выбранного диапазона без пагинации; planned описывает ближайший запуск задания
+      responses:
+        "200": { description: Файл отчета CSV UTF-8 или XLSX }
+  /v1/media/{media}/snapshots:
+    parameters: [{ $ref: "#/components/parameters/MediaID" }]
+    get:
+      summary: Инвентаризация собственного дискового формата включая просроченные точки
+      parameters:
+        - { in: query, name: verify, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          {
+            description: Объект repository с UUID и массив snapshots с метаданными срока и удержания,
+          }
+  /v1/media/{media}/gc:
+    parameters: [{ $ref: "#/components/parameters/MediaID" }]
+    get:
+      summary: Проверить содержимое и получить конкретный план очистки на 15 минут
+      responses:
+        "200":
+          description: План
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GCPlan" }
+    post:
+      summary: Поставить подтвержденную очистку в общую очередь
+      parameters: [{ $ref: "#/components/parameters/Idempotency" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan: { $ref: "#/components/schemas/GCPlan" }
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+  /v1/media/{media}/policy:
+    parameters: [{ $ref: "#/components/parameters/MediaID" }]
+    post:
+      summary: Изменить срок или удержание выбранного физического экземпляра
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snapshot_id, policy]
+              properties:
+                snapshot_id: { type: string }
+                policy: { $ref: "#/components/schemas/SnapshotPolicy" }
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+  /v1/media/{media}/import:
+    parameters: [{ $ref: "#/components/parameters/MediaID" }]
+    post:
+      summary: Проверить, удержать и зарегистрировать выбранные точки без включения расписания
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snapshot_ids, agent_id, retention_days]
+              properties:
+                snapshot_ids:
+                  {
+                    type: array,
+                    minItems: 1,
+                    maxItems: 1000,
+                    items: { type: string },
+                  }
+                agent_id: { type: string }
+                retention_days: { type: integer, minimum: 1, maximum: 36500 }
+      responses:
+        "202": { $ref: "#/components/responses/Run" }
+  /v1/media/{media}/wal/{archive}:
+    parameters:
+      - { $ref: "#/components/parameters/MediaID" }
+      - {
+          name: archive,
+          in: path,
+          required: true,
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" },
+        }
+    get:
+      summary: Проверяемые метаданные сохраненного WAL; время приема не является границей PITR
+      responses:
+        "200":
+          description: Сохраненные записи архива
+          content:
+            application/json:
+              schema:
+                {
+                  type: array,
+                  items: { $ref: "#/components/schemas/WALRecord" },
+                }
+  /v1/postgresql/{profile}/archive:
+    servers: [{ url: "https://localhost:8445" }]
+    parameters:
+      - { name: profile, in: path, required: true, schema: { type: string } }
+    post:
+      summary: archive_command; роль wal с ID AGENT_ID-wal или admin; только настроенный pg_wal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file, name]
+              properties:
+                file: { type: string }
+                name: { type: string }
+      responses:
+        "200":
+          description: Данные и аудит подтверждены медиасервером
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WALRecord" }
+        "403": { description: Нет прав архивирования }
+        "422":
+          {
+            description: WAL не подтвержден; PostgreSQL должен повторить запрос,
+          }
+  /v1/rescue/codes:
+    post:
+      summary: "Одноразовый код: восстановление выбранных копий либо запись одного диска; код 10 минут, сессия восстановления 4 часа, записи 12 часов"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: "Для восстановления обязательны run_ids. Для operation=backup обязательны name, media_id, retention_days, max_bytes; run_ids должны отсутствовать."
+              properties:
+                operation: { type: string, enum: [restore, backup] }
+                name: { type: string, maxLength: 200 }
+                media_id: { type: string }
+                retention_days: { type: integer, minimum: 1, maximum: 36500 }
+                max_bytes:
+                  { type: integer, minimum: 512, maximum: 4398046511104 }
+                run_ids:
+                  {
+                    type: array,
+                    minItems: 1,
+                    maxItems: 100,
+                    items: { type: string },
+                  }
+      responses:
+        "201":
+          {
+            description: "id, code, code_expires_at, session_expires_at; конфиденциальный код возвращается однократно",
+          }
+        "403": { $ref: "#/components/responses/Denied" }
+  /v1/rescue/codes/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    delete:
+      summary: Отозвать одноразовый код и сессию выбранного доступа
+      responses:
+        "200": { description: Доступ отозван }
+        "403": { $ref: "#/components/responses/Denied" }
+  /v1/rescue/pair:
+    post:
+      security: []
+      summary: Атомарно обменять код на ограниченную rescue-сессию; rate limit 5 попыток в минуту на IP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, minLength: 64, maxLength: 64 }
+      responses:
+        "200":
+          { description: "token и scope; токен хранится клиентом только в RAM" }
+        "403": { description: Код неизвестен, истек, отозван или использован }
+        "429": { description: Превышен лимит попыток }
+  /v1/rescue/backups:
+    get:
+      security: [{ rescueSession: [] }]
+      summary: Только разрешенные копии rescue-сессии
+      responses:
+        "200": { description: Список id, name, created_at, consistency }
+        "403": { $ref: "#/components/responses/Denied" }
+  /v1/rescue/backups/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      security: [{ rescueSession: [] }]
+      summary: Проверить целостность и вернуть манифест разрешенной копии; установить read lease
+      responses:
+        "200": { description: Manifest }
+        "403": { $ref: "#/components/responses/Denied" }
+        "422": { description: Копия повреждена или истек срок хранения }
+  /v1/rescue/backups/{id}/chunks/{hash}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - {
+          name: hash,
+          in: path,
+          required: true,
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" },
+        }
+    get:
+      security: [{ rescueSession: [] }]
+      summary: Получить проверенный блок только из разрешенного манифеста
+      responses:
+        "200": { description: application/octet-stream, не более 4 MiB }
+        "403": { $ref: "#/components/responses/Denied" }
+        "422":
+          {
+            description: Блок недоступен,
+            поврежден или отсутствует в манифесте,
+          }
+  /v1/rescue/disconnect:
+    post:
+      security: [{ rescueSession: [] }]
+      summary: Отозвать текущую rescue-сессию
+      responses:
+        "200": { description: Сессия отозвана }
+  /v1/rescue/events:
+    post:
+      security: [{ rescueSession: [] }]
+      summary: Записать клиентский отчет о восстановлении; это не независимая серверная проверка
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [run_id, status]
+              properties:
+                run_id: { type: string }
+                status: { type: string, enum: [started, verified, failed] }
+      responses:
+        "200": { description: Событие записано в аудит }
+  /v1/media/{media}/wal/{archive}/calendar:
+    parameters:
+      - { name: media, in: path, required: true, schema: { type: string } }
+      - { name: archive, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Предварительные интервалы PITR, статусы неизвестности и пропуски по LSN
+      responses:
+        "200":
+          { description: PITRCalendar; верхняя граница интервала исключающая }
+  /v1/media/{media}/wal/{archive}/gc:
+    parameters:
+      - { name: media, in: path, required: true, schema: { type: string } }
+      - { name: archive, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Рассчитать план очистки WAL с учетом зависимых баз и active pins
+      parameters:
+        - {
+            name: before,
+            in: query,
+            required: true,
+            schema: { type: string, format: date-time },
+          }
+        - {
+            name: allow_orphan,
+            in: query,
+            schema: { type: boolean, default: false },
+          }
+      responses:
+        "200":
+          {
+            description: WALGCPlan; список имен,
+            объем,
+            зависимости,
+            блокировки и token,
+          }
+  /v1/media/{media}/wal-gc:
+    parameters:
+      - { name: media, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Поставить применение проверенного WAL-плана в общую очередь
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wal_plan]
+              properties:
+                wal_plan:
+                  { type: object, description: Полный неизмененный WALGCPlan }
+      responses:
+        "202":
+          {
+            description: Задание обслуживания Run; результат содержит wal_removed,
+          }
+  /v1/rescue/captures:
+    post:
+      security: [{ rescueSession: [] }]
+      summary: Поставить одну разрешенную копию физического диска в общую очередь
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DiskGeometry" }
+      responses:
+        "202": { description: Run с неизменяемой геометрией выбранного диска }
+        "403": { description: Нет отдельного разрешения записи }
+        "409": { description: Код уже использован для другого диска }
+  /v1/rescue/captures/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      security: [{ rescueSession: [] }]
+      summary: Состояние своего capture-задания и разрешение прямой загрузки после получения слота
+      responses:
+        "200":
+          {
+            description: "run, media_url, certificate_sha256, token; секретное разрешение не журналируется",
+          }
+  /v1/rescue/captures/{id}/abort:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      security: [{ rescueSession: [] }]
+      summary: Запросить остановку собственного задания
+      responses:
+        "200": { description: Запрос принят }
+  /v1/rescue/captures/{id}/authorize:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      security: [{ clientCertificate: [] }]
+      summary: Онлайн-проверка разрешения только сертификатом выбранного медиасервера
+      responses:
+        "200": { description: Разрешение активно }
+        "403":
+          {
+            description: Отзыв,
+            истечение,
+            остановка,
+            потеря fencing lock или неверный медиасервер,
+          }
+  /v1/runs/{id}/events:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Последние 200 событий задания из долговечного журнала
+      responses:
+        "200": { description: "Audit[] в обратном хронологическом порядке" }
+    post:
+      security: [{ clientCertificate: [] }]
+      summary: Только назначенный прокси; событие vm.* в долговечный журнал
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, message]
+              properties:
+                action: { type: string, pattern: '^vm\.', maxLength: 64 }
+                message: { type: string, maxLength: 4096 }
+      responses:
+        "200": { description: Событие записано }
+        "403": { $ref: "#/components/responses/Denied" }
+  /v1/captures/{id}:
+    servers: [{ url: "https://localhost:8444" }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      security: [{ clientCertificate: [] }]
+      summary: Только менеджер; зарегистрировать неизменяемый CaptureTicket на медиасервере
+      responses:
+        "201": { description: Ticket сохранен, write lease активна }
+        "409": { description: Конфликт задания или хранилище не готово }
+    get:
+      security: [{ clientCertificate: [] }, { captureToken: [] }]
+      summary: Проверенное состояние прямой передачи диска
+      responses:
+        "200": { description: CaptureStatus с next_index, result и updated_at }
+  /v1/captures/{id}/blocks/{index}/{hash}:
+    servers: [{ url: "https://localhost:8444" }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - {
+          name: index,
+          in: path,
+          required: true,
+          schema: { type: integer, minimum: 0 },
+        }
+      - {
+          name: hash,
+          in: path,
+          required: true,
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" },
+        }
+    post:
+      security: [{ captureToken: [] }]
+      summary: Проверить существующий блок и долговечно подтвердить его повторное использование
+      responses:
+        "200": { description: "present и status; present=false требует PUT" }
+        "403": { description: Capture-доступ не разрешен менеджером }
+        "409": { description: Нарушен индекс, размер, хеш или порядок передачи }
+    put:
+      security: [{ captureToken: [] }]
+      summary: Передать отсутствующий блок напрямую на медиасервер
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary, maxLength: 4194304 }
+      responses:
+        "200": { description: Блок проверен и fsync-подтвержден в журнале }
+        "403": { description: Разрешение записи отозвано или недоступно }
+        "409":
+          {
+            description: Поврежденный блок либо конфликт подтвержденного индекса,
+          }
+  /v1/captures/{id}/commit:
+    servers: [{ url: "https://localhost:8444" }]
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      security: [{ captureToken: [] }]
+      summary: Построить манифест по серверному журналу и начать полную проверку диска
+      responses:
+        "202":
+          {
+            description: Проверка запущена; успех подтверждается последующим статусом менеджера,
+          }
+        "409":
+          { description: Диск передан не полностью или состояние конфликтует }
+  /v1/proxies/{proxy}/virtualization:
+    parameters:
+      - { in: path, name: proxy, required: true, schema: { type: string } }
+    get:
+      summary: Профили онлайн-прокси
+      responses:
+        "200": { description: Результат операции }
+        "409":
+          {
+            description: Прокси недоступен,
+            операция активна или требуется сверка ресурсов,
+          }
+  /v1/proxies/{proxy}/virtualization/{profile}/vms:
+    parameters:
+      - { in: path, name: proxy, required: true, schema: { type: string } }
+      - { in: path, name: profile, required: true, schema: { type: string } }
+    get:
+      summary: Инвентаризация ВМ
+      responses:
+        "200": { description: Результат операции }
+        "409":
+          {
+            description: Прокси недоступен,
+            операция активна или требуется сверка ресурсов,
+          }
+  /v1/proxies/{proxy}/virtualization/{profile}/vms/{id}/plan:
+    parameters:
+      - { in: path, name: proxy, required: true, schema: { type: string } }
+      - { in: path, name: profile, required: true, schema: { type: string } }
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      summary: Проверка готовности источника ВМ
+      responses:
+        "200": { description: Результат операции }
+        "409":
+          {
+            description: Прокси недоступен,
+            операция активна или требуется сверка ресурсов,
+          }
+  /v1/proxies/{proxy}/virtualization/{profile}/journal:
+    parameters:
+      - { in: path, name: proxy, required: true, schema: { type: string } }
+      - { in: path, name: profile, required: true, schema: { type: string } }
+    get:
+      summary: Журналы незавершённых операций платформы
+      responses:
+        "200": { description: Результат операции }
+        "409":
+          {
+            description: Прокси недоступен,
+            операция активна или требуется сверка ресурсов,
+          }
+  /v1/proxies/{proxy}/virtualization/{profile}/cleanup/{id}:
+    parameters:
+      - { in: path, name: proxy, required: true, schema: { type: string } }
+      - { in: path, name: profile, required: true, schema: { type: string } }
+      - { in: path, name: id, required: true, schema: { type: string } }
+    post:
+      summary: Повторная очистка только собственных ресурсов
+      responses:
+        "200": { description: Результат операции }
+        "409":
+          {
+            description: Прокси недоступен,
+            операция активна или требуется сверка ресурсов,
+          }
+  /v1/runs/{id}/progress:
+    parameters: [{ $ref: "#/components/parameters/ID" }]
+    post:
+      security: [{ clientCertificate: [] }]
+      summary: Только назначенный прокси; прогресс ВМ без права завершить запуск
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          { description: Признак accepted; завершённый запуск не обновляется }
+        "403": { $ref: "#/components/responses/Denied" }
+components:
+  securitySchemes:
+    captureToken:
+      {
+        type: http,
+        scheme: bearer,
+        description: "Подписанное разрешение на один диск; требует активного задания и онлайн-проверки сессии менеджером",
+      }
+    rescueSession:
+      {
+        type: http,
+        scheme: bearer,
+        description: Ограниченный токен аварийного клиента,
+      }
+    clientCertificate: { type: mutualTLS }
+    webSession: { type: apiKey, in: cookie, name: srk_session }
+  parameters:
+    MediaID: { in: path, name: media, required: true, schema: { type: string } }
+    ID: { in: path, name: id, required: true, schema: { type: string } }
+    Idempotency:
+      {
+        in: header,
+        name: Idempotency-Key,
+        schema: { type: string, maxLength: 128 },
+      }
+    Scope:
+      {
+        in: query,
+        name: scope,
+        schema:
+          { type: string, enum: [all, now, history, upcoming], default: all },
+      }
+    Status:
+      {
+        in: query,
+        name: status,
+        schema:
+          {
+            type: string,
+            enum: [all, queued, running, success, error, cancelled, planned],
+          },
+      }
+    Search:
+      { in: query, name: search, schema: { type: string, maxLength: 1000 } }
+    From:
+      {
+        in: query,
+        name: from,
+        description: Включаемая граница времени создания или планового запуска,
+        schema: { type: string, format: date-time },
+      }
+    To:
+      {
+        in: query,
+        name: to,
+        description: Исключаемая граница,
+        schema: { type: string, format: date-time },
+      }
+  responses:
+    Denied:
+      description: Аутентификация или полномочия отклонены
+      content:
+        application/json:
+          schema: { type: object, properties: { error: { type: string } } }
+    Run:
+      description: Операция; 202 подтверждает принятие, а не успешное завершение
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Run" }
+  schemas:
+    WALReplicationLag:
+      type: object
+      description: Снимок источника; возраст ArchivedAt не является транзакционным RPO
+      required:
+        [
+          state,
+          source_protected,
+          target_online,
+          observed_at,
+          pending_files,
+          pending_bytes,
+          pending_age_seconds,
+        ]
+      properties:
+        state:
+          {
+            type: string,
+            enum: [pending, caught_up, released, source_unavailable],
+          }
+        source_protected: { type: boolean }
+        target_online: { type: boolean }
+        observed_at: { type: string, format: date-time }
+        pending_files: { type: [integer, "null"], minimum: 0 }
+        pending_bytes: { type: [integer, "null"], minimum: 0 }
+        pending_age_seconds: { type: [integer, "null"], minimum: 0 }
+        oldest_pending_at: { type: string, format: date-time }
+        last_contact_at: { type: string, format: date-time }
+        last_acknowledged_at: { type: string, format: date-time }
+        error: { type: string }
+    Replication:
+      type: object
+      properties:
+        source_run_id: { type: string }
+        source_media_id: { type: string }
+        source_snapshot_id: { type: string }
+        target_media_id: { type: string }
+        retention_days: { type: integer, minimum: 1, maximum: 36500 }
+        copy_run_id:
+          {
+            type: string,
+            description: ID отдельной точки восстановления в каталоге после успеха,
+          }
+    DiskGeometry:
+      type: object
+      required: [host, device, bytes, sector_size]
+      properties:
+        host: { type: string, maxLength: 128 }
+        device: { type: string, pattern: "^/dev/", maxLength: 256 }
+        model: { type: string, maxLength: 256 }
+        serial: { type: string, maxLength: 256 }
+        bytes: { type: integer, minimum: 512, maximum: 4398046511104 }
+        sector_size: { type: integer, enum: [512, 4096] }
+    Job:
+      description: type files (или отсутствие поля) — файлы; postgresql — настроенный профиль агента в source postgresql://PROFILE, только mode full
+      type: object
+      required: [name, agent_id, media_id, source, mode, retention_days]
+      properties:
+        id: { type: string, readOnly: true }
+        type:
+          {
+            type: string,
+            enum:
+              [
+                files,
+                postgresql,
+                disk-image,
+                openstack,
+                ovirt,
+                proxmox,
+                opennebula,
+                s3,
+                mysql,
+              ],
+          }
+        name: { type: string, maxLength: 200 }
+        agent_id: { type: string }
+        media_id: { type: string }
+        source: { type: string }
+        vm: { $ref: "#/components/schemas/VMOptions" }
+        mode: { type: string, enum: [full, incremental, differential] }
+        interval_seconds: { type: integer, minimum: 0, maximum: 31536000 }
+        retention_days: { type: integer, minimum: 1, maximum: 36500 }
+        enabled: { type: boolean }
+        version: { type: integer, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        next_run: { type: string, format: date-time, readOnly: true }
+    Run:
+      type: object
+      properties:
+        id: { type: string }
+        job_id: { type: string }
+        job: { $ref: "#/components/schemas/Job" }
+        kind:
+          {
+            type: string,
+            enum:
+              [backup, replicate, restore, verify, gc, wal-gc, import, policy],
+          }
+        status:
+          { type: string, enum: [queued, running, success, error, cancelled] }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        capture:
+          type: object
+          properties:
+            scope_id: { type: string }
+            expires_at: { type: string, format: date-time }
+            disk: { $ref: "#/components/schemas/DiskGeometry" }
+        wal_replication:
+          {
+            type: object,
+            description: Снимок политики с source/target media и repository ID,
+            archive_id,
+            interval_seconds,
+          }
+        replication: { $ref: "#/components/schemas/Replication" }
+        vm_restore: { $ref: "#/components/schemas/VMRestoreRequest" }
+        pitr: { $ref: "#/components/schemas/PITRRequest" }
+        snapshot_id: { type: string }
+        snapshot_expires_at: { type: string, format: date-time }
+        snapshot_state: { type: string, enum: [active, held, expired, deleted] }
+        options: { $ref: "#/components/schemas/MaintenanceOptions" }
+        maintenance: { $ref: "#/components/schemas/MaintenanceResult" }
+        origin:
+          type: object
+          properties:
+            repository_id: { type: string }
+            snapshot_id: { type: string }
+            original_job_id: { type: string }
+            imported_at: { type: string, format: date-time }
+        error: { type: string }
+        result:
+          type: object
+          properties:
+            wal_replication:
+              type: object
+              description: policy_id, archive_id, source/target media, segments, copied, reused, checked_at и calendar с фактическими окнами/пропусками
+            replica:
+              type: object
+              description: Устойчивая квитанция проверенной реплики; происхождение, target_run_id/target_snapshot_id, retention_days, expires_at, source_manifest_hash
+            vm: { $ref: "#/components/schemas/VMBackup" }
+            vm_restore: { $ref: "#/components/schemas/VMRestoreResult" }
+            data: { $ref: "#/components/schemas/DataBackup" }
+            disk: { $ref: "#/components/schemas/DiskGeometry" }
+            files: { type: integer }
+            changed_files: { type: integer }
+            logical_bytes: { type: integer }
+            uploaded_bytes: { type: integer }
+            chunks: { type: integer }
+            verified: { type: boolean }
+            consistency:
+              {
+                type: string,
+                enum:
+                  [
+                    live-files,
+                    postgresql-physical,
+                    offline-disk-image,
+                    openstack-cold-consistent,
+                    openstack-crash-consistent,
+                    ovirt-cold-consistent,
+                    ovirt-crash-consistent,
+                    s3-logical,
+                    mysql-logical,
+                    "",
+                  ],
+              }
+            postgresql: { $ref: "#/components/schemas/PostgreSQLBackup" }
+            pitr: { $ref: "#/components/schemas/PITRResult" }
+            phase: { type: string }
+            total_bytes: { type: integer }
+            total_files: { type: integer }
+            progress_bytes: { type: integer }
+            progress_percent:
+              { type: [number, "null"], minimum: 0, maximum: 100 }
+            progress_scope:
+              {
+                type: string,
+                enum:
+                  [
+                    basebackup,
+                    unpack,
+                    data-transfer,
+                    validation,
+                    wal-download,
+                    recovery,
+                    operation,
+                  ],
+              }
+            effective_mode: { type: string }
+            repository_id: { type: string }
+    MaintenanceOptions:
+      type: object
+      properties:
+        media_id: { type: string }
+        agent_id: { type: string }
+        snapshot_ids: { type: array, items: { type: string } }
+        retention_days: { type: integer, minimum: 1, maximum: 36500 }
+        plan: { $ref: "#/components/schemas/GCPlan" }
+        automatic: { type: boolean }
+        snapshot_id: { type: string }
+        policy: { $ref: "#/components/schemas/SnapshotPolicy" }
+    MaintenanceResult:
+      type: object
+      properties:
+        operation_id: { type: string }
+        repository_id: { type: string }
+        at: { type: string, format: date-time }
+        removed_snapshots: { type: array, items: { type: string } }
+        snapshots_removed: { type: integer }
+        chunks_removed: { type: integer }
+        bytes_removed: { type: integer }
+        deferred_writers: { type: integer }
+        imported: { type: integer }
+        skipped: { type: integer }
+    SnapshotPolicy:
+      type: object
+      description: Нужен expires_at и/или hold; для hold true нужна причина
+      properties:
+        expires_at: { type: string, format: date-time }
+        hold: { type: boolean }
+        reason: { type: string, maxLength: 1000 }
+    GCPlan:
+      type: object
+      required: [repository_id, at, token]
+      properties:
+        repository_id: { type: string }
+        at: { type: string, format: date-time }
+        token: { type: string }
+        fingerprint: { type: string }
+        snapshots: { type: array, items: { type: string } }
+        chunks: { type: array, items: { type: string } }
+        expired_leases: { type: array, items: { type: string } }
+        bytes: { type: integer }
+        active_readers: { type: integer }
+        active_writers: { type: integer }
+    PostgreSQLBackup:
+      type: object
+      properties:
+        profile: { type: string }
+        major: { type: integer, minimum: 13, maximum: 18 }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        native_verified: { type: boolean }
+        system_id: { type: string }
+        segment_size: { type: integer }
+        archive_id: { type: string }
+        wal_ranges:
+          type: array
+          items:
+            type: object
+            properties:
+              Timeline: { type: integer }
+              Start-LSN: { type: string }
+              End-LSN: { type: string }
+    PITRRequest:
+      type: object
+      required: [target_time]
+      properties:
+        target_time:
+          {
+            type: string,
+            format: date-time,
+            description: "RFC3339 с часовым поясом; нормализуется до UTC и микросекунд",
+          }
+        inclusive: { type: boolean, default: true }
+    PITRResult:
+      type: object
+      properties:
+        target_time: { type: string, format: date-time }
+        inclusive: { type: boolean }
+        archive_id: { type: string }
+        timeline: { type: integer }
+        segments: { type: integer }
+        recovered:
+          {
+            type: boolean,
+            description: "PostgreSQL подтвердил цель; восстановленный кластер остановлен",
+          }
+    WALRecord:
+      type: object
+      properties:
+        archive_id: { type: string }
+        agent_id: { type: string }
+        profile: { type: string }
+        system_id: { type: string }
+        major: { type: integer }
+        segment_size: { type: integer }
+        name: { type: string }
+        bytes: { type: integer }
+        sha256: { type: string }
+        archived_at: { type: string, format: date-time }
+    # v0.5 Rescue endpoints and request/response semantics: docs/rescue.md.
+    # v0.5 WAL calendar / reviewed GC: docs/wal-pitr.md.
+    # v0.5 read-only virtualization and planning-stage tape API: docs/integrations-v05.md.
+
+    VMOptions:
+      type: object
+      required: [consistency]
+      properties:
+        consistency: { type: string, enum: [crash-consistent, cold-only] }
+    VMRestoreRequest:
+      type: object
+      required: [name, flavor_id, networks]
+      properties:
+        name: { type: string, maxLength: 200 }
+        provider:
+          { type: string, enum: [openstack, ovirt, proxmox, opennebula] }
+        import_storage_id:
+          {
+            type: string,
+            description: Только дополнительный PBS/PVE import путь; WebDAV не требует,
+          }
+        proxy_id: { type: string }
+        profile: { type: string }
+        flavor_id:
+          {
+            type: string,
+            description: Flavor OpenStack или UUID кластера oVirt или имя узла PVE или числовой ID кластера OpenNebula,
+          }
+        storage_domain_id:
+          {
+            type: string,
+            description: UUID домена oVirt или ID хранилища дисков PVE или числовой image datastore OpenNebula,
+          }
+        networks:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 16,
+            uniqueItems: true,
+            items: { type: string },
+          }
+        security_groups:
+          {
+            type: array,
+            items: { type: string },
+            description: Только OpenStack,
+          }
+        key_name: { type: string, description: Только OpenStack }
+        availability_zone: { type: string, description: Только OpenStack }
+    VMBackup:
+      type: object
+      properties:
+        provider:
+          { type: string, enum: [openstack, ovirt, proxmox, opennebula] }
+        profile: { type: string }
+        server_id: { type: string, description: UUID или числовой ID ВМ }
+        project_id:
+          {
+            type: string,
+            description: Проект или узел PVE или кластер OpenNebula,
+          }
+        name: { type: string }
+        status: { type: string }
+        consistency: { type: string }
+        snapshot_at: { type: string, format: date-time }
+        flavor: { type: object }
+        networks: { type: array, items: { type: object } }
+        archive:
+          type: object
+          description: Нативный VMA Proxmox; для него SHA-256 хранится на архиве, а диски описывают устройства внутри него
+          properties:
+            file: { type: string }
+            name: { type: string }
+            format: { type: string, const: vma }
+            bytes: { type: integer }
+            sha256: { type: string }
+        disks:
+          type: array
+          items: { type: object }
+    VMRestoreResult:
+      type: object
+      properties:
+        server_id: { type: string, description: UUID или числовой ID ВМ }
+        name: { type: string }
+        status: { type: string }
+        volumes: { type: array, items: { type: string } }
+        control_plane_verified:
+          {
+            type: boolean,
+            description: API подтвердил ВМ и зависимости; готовность гостевой ОС не проверена,
+          }
+    DataBackup:
+      type: object
+      required: [kind, profile]
+      properties:
+        kind: { type: string, enum: [s3, mysql] }
+        profile: { type: string }
+        engine: { type: string, enum: [mysql, mariadb] }
+        database: { type: string }
+        bucket: { type: string }
+        prefix: { type: string }
+        objects:
+          {
+            type: array,
+            maxItems: 10000,
+            items: { type: object, required: [file, key, bytes, sha256] },
+          }

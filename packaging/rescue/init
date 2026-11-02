@@ -1,0 +1,49 @@
+#!/bin/sh
+# Copyright 2026 Кислов Роман Сергеевич
+# SPDX-License-Identifier: Apache-2.0
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export HOME=/root TERM=linux LANG=C.UTF-8
+mkdir -p /proc /sys /dev /run /tmp
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts /run /tmp
+mount -t devpts devpts /dev/pts
+mount -t tmpfs tmpfs /run
+mount -t tmpfs tmpfs /tmp
+hostname srk-rescue
+for module in ahci sd_mod sr_mod nvme virtio_pci virtio_blk virtio_scsi virtio_net e1000 e1000e r8169 xhci_pci usb_storage uas; do modprobe "$module" 2>/dev/null; done
+# Probe installed PCI/storage drivers by modalias as well as common early modules.
+find /sys/devices -name modalias -type f | while read -r alias; do
+ value=$(cat "$alias" 2>/dev/null) || continue
+ [ -n "$value" ] && modprobe "$value" 2>/dev/null
+done
+mdev -s
+if ! grep -q 'console=ttyS0' /proc/cmdline; then
+ # Explicit VT descriptors avoid inheriting a firmware-selected serial console.
+ modprobe bochs 2>/dev/null
+ modprobe fbcon 2>/dev/null
+ chvt 1 2>/dev/null
+ exec </dev/tty1 >/dev/tty1 2>&1
+ printf '\033%%G'
+ kbd_mode -u -C /dev/tty1 2>/dev/null
+ gzip -dc /usr/share/consolefonts/LatArCyrHeb-16.psfu.gz > /tmp/srk-font.psf
+ for loader in /usr/bin/setfont /bin/setfont /usr/sbin/setfont; do
+  [ -x "$loader" ] && "$loader" -C /dev/tty1 /tmp/srk-font.psf 2>/dev/null && break
+ done
+fi
+ip link set lo up
+# System disks are never mounted automatically.
+for iface in /sys/class/net/*; do
+ name=${iface##*/}
+ [ "$name" = lo ] && continue
+ ip link set "$name" up
+ udhcpc -i "$name" -n -q -t 3 -T 2 2>/dev/null &
+done
+wait
+while true; do
+ /usr/local/bin/srk-rescue
+ echo 'Rescue menu stopped. Enter returns to menu; type shell for diagnostics.'
+ read -r action
+ [ "$action" = shell ] && /bin/sh
+ done

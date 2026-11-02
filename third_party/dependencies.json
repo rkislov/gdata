@@ -1,0 +1,596 @@
+[
+  {
+    "ecosystem": "go",
+    "name": "github.com/cespare/xxhash/v2",
+    "version": "v2.3.0",
+    "license_files": [
+      "LICENSE.txt"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/dustin/go-humanize",
+    "version": "v1.0.1",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/ebitengine/purego",
+    "version": "v0.10.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/go-ole/go-ole",
+    "version": "v1.2.6",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/google/go-cmp",
+    "version": "v0.7.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/google/uuid",
+    "version": "v1.6.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/jackc/pgpassfile",
+    "version": "v1.0.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/jackc/pgservicefile",
+    "version": "v0.0.0-20240606120523-5a60cdf6a761",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/jackc/pgx/v5",
+    "version": "v5.7.6",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/jackc/puddle/v2",
+    "version": "v2.2.2",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/klauspost/compress",
+    "version": "v1.19.2",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/klauspost/cpuid/v2",
+    "version": "v2.4.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/klauspost/crc32",
+    "version": "v1.3.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/lufia/plan9stats",
+    "version": "v0.0.0-20211012122336-39d0f177ccd0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/minio/crc64nvme",
+    "version": "v1.1.1",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/minio/md5-simd",
+    "version": "v1.1.2",
+    "license_files": [
+      "LICENSE",
+      "LICENSE.Golang"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/minio/minio-go/v7",
+    "version": "v7.4.1",
+    "license_files": [
+      "LICENSE",
+      "NOTICE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/philhofer/fwd",
+    "version": "v1.2.0",
+    "license_files": [
+      "LICENSE.md"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/power-devops/perfstat",
+    "version": "v0.0.0-20240221224432-82ca36839d55",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/rs/xid",
+    "version": "v1.6.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/shirou/gopsutil/v4",
+    "version": "v4.26.5",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/stretchr/testify",
+    "version": "v1.12.1",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/tinylib/msgp",
+    "version": "v1.6.4",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/tklauser/go-sysconf",
+    "version": "v0.3.16",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/tklauser/numcpus",
+    "version": "v0.11.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/yusufpapurcu/wmi",
+    "version": "v1.2.4",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/zeebo/assert",
+    "version": "v1.3.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "github.com/zeebo/xxh3",
+    "version": "v1.1.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "go.yaml.in/yaml/v3",
+    "version": "v3.0.5",
+    "license_files": [
+      "LICENSE",
+      "NOTICE"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "golang.org/x/crypto",
+    "version": "v0.57.0",
+    "license_files": [
+      "LICENSE",
+      "PATENTS"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "golang.org/x/net",
+    "version": "v0.60.0",
+    "license_files": [
+      "LICENSE",
+      "PATENTS"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "golang.org/x/sync",
+    "version": "v0.23.0",
+    "license_files": [
+      "LICENSE",
+      "PATENTS"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "golang.org/x/sys",
+    "version": "v0.48.0",
+    "license_files": [
+      "LICENSE",
+      "PATENTS"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "golang.org/x/text",
+    "version": "v0.42.0",
+    "license_files": [
+      "LICENSE",
+      "PATENTS"
+    ]
+  },
+  {
+    "ecosystem": "go",
+    "name": "gopkg.in/ini.v1",
+    "version": "v1.67.3",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@isaacs/fs-minipass",
+    "version": "4.0.1",
+    "license": "ISC",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@jridgewell/gen-mapping",
+    "version": "0.3.13",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@jridgewell/remapping",
+    "version": "2.3.5",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@jridgewell/resolve-uri",
+    "version": "3.1.2",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@jridgewell/sourcemap-codec",
+    "version": "1.6.0",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@jridgewell/trace-mapping",
+    "version": "0.3.31",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@parcel/watcher",
+    "version": "2.6.0",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@parcel/watcher-darwin-arm64",
+    "version": "2.6.0",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@tailwindcss/cli",
+    "version": "4.1.14",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@tailwindcss/node",
+    "version": "4.1.14",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@tailwindcss/oxide",
+    "version": "4.1.14",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "@tailwindcss/oxide-darwin-arm64",
+    "version": "4.1.14",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "chownr",
+    "version": "3.0.0",
+    "license": "BlueOak-1.0.0",
+    "license_files": [
+      "LICENSE.md"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "detect-libc",
+    "version": "2.1.2",
+    "license": "Apache-2.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "enhanced-resolve",
+    "version": "5.26.0",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "graceful-fs",
+    "version": "4.2.11",
+    "license": "ISC",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "is-extglob",
+    "version": "2.1.1",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "is-glob",
+    "version": "4.0.3",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "jiti",
+    "version": "2.7.0",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "lightningcss",
+    "version": "1.30.1",
+    "license": "MPL-2.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "lightningcss-darwin-arm64",
+    "version": "1.30.1",
+    "license": "MPL-2.0",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "magic-string",
+    "version": "0.30.21",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "minipass",
+    "version": "7.1.3",
+    "license": "BlueOak-1.0.0",
+    "license_files": [
+      "LICENSE.md"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "minizlib",
+    "version": "3.1.0",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "mri",
+    "version": "1.2.0",
+    "license": "MIT",
+    "license_files": [
+      "license.md"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "node-addon-api",
+    "version": "7.1.1",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE.md"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "picocolors",
+    "version": "1.1.1",
+    "license": "ISC",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "picomatch",
+    "version": "4.0.7",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "prettier",
+    "version": "3.6.2",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "source-map-js",
+    "version": "1.2.2",
+    "license": "BSD-3-Clause",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "tailwindcss",
+    "version": "4.1.14",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "tapable",
+    "version": "2.3.3",
+    "license": "MIT",
+    "license_files": [
+      "LICENSE"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "tar",
+    "version": "7.5.22",
+    "license": "BlueOak-1.0.0",
+    "license_files": [
+      "LICENSE.md"
+    ]
+  },
+  {
+    "ecosystem": "npm",
+    "name": "yallist",
+    "version": "5.0.0",
+    "license": "BlueOak-1.0.0",
+    "license_files": [
+      "LICENSE.md"
+    ]
+  }
+]
