@@ -29,7 +29,7 @@ be configured separately. Services are not started automatically.
 %install
 install -Dm755 srk %buildroot%_bindir/srk
 install -Dm644 srk@.service %buildroot%_unitdir/srk@.service
-mkdir -p %buildroot%_sysconfdir/srk %buildroot%_localstatedir/lib/srk %buildroot%_localstatedir/log/srk
+mkdir -p %buildroot%_sysconfdir/srk %buildroot/var/lib/srk %buildroot/var/log/srk
 mkdir -p %buildroot%_docdir/%name-%version
 cp -a docs LICENSE NOTICE README.md third_party %buildroot%_docdir/%name-%version/
 
@@ -54,8 +54,8 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %_bindir/srk
 %_unitdir/srk@.service
 %dir %attr(0750,root,srk) %_sysconfdir/srk
-%dir %attr(0750,srk,srk) %_localstatedir/lib/srk
-%dir %attr(0750,srk,srk) %_localstatedir/log/srk
+%dir %attr(0750,srk,srk) /var/lib/srk
+%dir %attr(0750,srk,srk) /var/log/srk
 %_docdir/%name-%version
 
 %changelog
