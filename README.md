@@ -21,6 +21,7 @@
 - [Инструкция пользователя](docs/user-guide.md): вход, резервирование, восстановление, CLI и отчёты.
 - [Инструкция администратора](docs/admin-guide.md): установка, PKI, systemd, доступ, эксплуатация и аварийное восстановление.
 - [Сборки ALT Linux 10 x86_64](https://github.com/rkislov/gdata/releases): RPM, архив и SHA256SUMS. Локальная сборка: `make altlinux`.
+- [Презентация со свежими скриншотами](docs/presentation/GData-SRK-0.9.2.pptx): 10 слайдов о работе системы и установке.
 - [Участие в разработке](CONTRIBUTING.md): Issues и PR из forks.
 
 ## Что работает
