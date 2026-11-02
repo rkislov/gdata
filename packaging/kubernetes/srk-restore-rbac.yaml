@@ -1,0 +1,90 @@
+# Copyright 2026 Кислов Роман Сергеевич
+# SPDX-License-Identifier: Apache-2.0
+# Optional restore privileges. Review before applying; namespace-prefix checks
+# are enforced by SRK, not by RBAC. Bind a dedicated trusted account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: srk-restore
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, create]
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    verbs: [get]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    verbs: [get]
+  - apiGroups: [snapshot.storage.k8s.io]
+    resources: [volumesnapshotclasses]
+    verbs: [get]
+  - apiGroups: [snapshot.storage.k8s.io]
+    resources: [volumesnapshots, volumesnapshotcontents]
+    verbs: [get, create]
+  - apiGroups: [""]
+    resources: [configmaps, secrets, services, serviceaccounts, persistentvolumeclaims]
+    verbs: [get, create]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [default]
+    verbs: [update]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, daemonsets]
+    verbs: [get, create]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    verbs: [get, create]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies, ingresses]
+    verbs: [get, create]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [get, create]
+# No escalate/bind privileges granted. Kubernetes may refuse restored RBAC
+# that exceeds this account's privileges; explicitly review needed permissions.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: srk-restore
+subjects:
+  - kind: ServiceAccount
+    name: srk-backup
+    namespace: demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: srk-restore
+---
+# Optional scheduled verification only. Add to a dedicated test account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: srk-restore-check
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [delete]
+  - apiGroups: [""]
+    resources: [pods, persistentvolumeclaims]
+    verbs: [list, get]
+  - apiGroups: [""]
+    resources: [services/proxy]
+    verbs: [get]
+  - apiGroups: [snapshot.storage.k8s.io]
+    resources: [volumesnapshotcontents]
+    verbs: [list, get, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: srk-restore-check
+subjects:
+  - kind: ServiceAccount
+    name: srk-backup
+    namespace: demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: srk-restore-check

@@ -1,0 +1,9 @@
+.local/
+.work/
+bin/
+node_modules/
+*.log
+coverage.out
+.DS_Store
+dist/
+/srk

@@ -1,0 +1,24 @@
+# Copyright 2026 Кислов Роман Сергеевич
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=GData SRK %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=srk
+Group=srk
+ExecStart=/usr/local/bin/srk --config /etc/srk/%i.json %i serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/srk /var/log/srk
+
+[Install]
+WantedBy=multi-user.target

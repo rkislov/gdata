@@ -1,0 +1,8 @@
+**
+!bin/
+!bin/srk-rescue-linux-amd64
+!packaging/
+!packaging/rescue/
+!packaging/rescue/**
+!LICENSE
+!NOTICE
