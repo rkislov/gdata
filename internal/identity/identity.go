@@ -46,10 +46,6 @@ func Request(r *http.Request) (Peer, error) {
 	return Parse(r.TLS.PeerCertificates[0])
 }
 func Config(c config.Config, server bool) (*tls.Config, error) {
-	pair, e := tls.LoadX509KeyPair(c.Cert, c.Key)
-	if e != nil {
-		return nil, e
-	}
 	ca, e := os.ReadFile(c.CA)
 	if e != nil {
 		return nil, e
@@ -58,26 +54,32 @@ func Config(c config.Config, server bool) (*tls.Config, error) {
 	if !pool.AppendCertsFromPEM(ca) {
 		return nil, errors.New("invalid CA")
 	}
-	leaf, e := x509.ParseCertificate(pair.Certificate[0])
+	pair, e := loadPair(c, pool)
 	if e != nil {
 		return nil, e
 	}
-	intermediates := x509.NewCertPool()
-	for _, raw := range pair.Certificate[1:] {
-		cert, e := x509.ParseCertificate(raw)
-		if e != nil {
-			return nil, e
+	t := &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pool, ClientCAs: pool}
+	if c.ServiceCertificates == nil {
+		t.Certificates = []tls.Certificate{pair}
+	} else {
+		load := func() (*tls.Certificate, error) { p, err := loadPair(c, pool); return &p, err }
+		t.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return load() }
+		t.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { return load() }
+		t.SessionTicketsDisabled = true
+		if server {
+			// Select the complete generation even for IP clients without SNI.
+			t.GetConfigForClient = func(*tls.ClientHelloInfo) (*tls.Config, error) {
+				pair, err := load()
+				if err != nil {
+					return nil, err
+				}
+				next := t.Clone()
+				next.GetConfigForClient, next.GetCertificate = nil, nil
+				next.Certificates = []tls.Certificate{*pair}
+				return next, nil
+			}
 		}
-		intermediates.AddCert(cert)
 	}
-	if _, e = leaf.Verify(x509.VerifyOptions{Roots: pool, Intermediates: intermediates, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny}}); e != nil {
-		return nil, fmt.Errorf("invalid local certificate: %w", e)
-	}
-	self, e := Parse(leaf)
-	if e != nil || self.ID != c.ID || self.Role != c.Role || self.Installation != c.Installation {
-		return nil, errors.New("configuration and certificate identity mismatch")
-	}
-	t := &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair}, RootCAs: pool, ClientCAs: pool}
 	if server {
 		t.ClientAuth = tls.RequireAndVerifyClientCert
 		if c.Role == "manager" || c.Role == "media" && c.RescueCaptureEnabled {
@@ -142,7 +144,9 @@ func Client(c config.Config, expected ...Peer) (*http.Client, error) {
 			return nil
 		}
 	}
-	return &http.Client{Transport: &http.Transport{TLSClientConfig: t, MaxIdleConnsPerHost: 16, ResponseHeaderTimeout: 30 * time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirects prohibited") }}, nil
+	transport := &http.Transport{TLSClientConfig: t, MaxIdleConnsPerHost: 16, ResponseHeaderTimeout: 30 * time.Second}
+	registerClient(c, transport)
+	return &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirects prohibited") }}, nil
 }
 func InitCA(dir, installation string) error {
 	if _, e := os.Stat(filepath.Join(dir, "ca.key")); !os.IsNotExist(e) {

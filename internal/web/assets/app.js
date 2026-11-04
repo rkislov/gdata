@@ -308,7 +308,7 @@ function render() {
     state.page === "overview"
       ? stats() +
         resourceOverview() +
-        `<div class="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 px-5 py-4"><p class="text-xs leading-5 text-brand-700"><strong>GData SRK · v0.8</strong>　Репликация между медиасерверами, PostgreSQL PITR, SRK Rescue и ВМ OpenStack/Tionix, oVirt, Proxmox и OpenNebula.</p><span class="text-xs text-brand-500">Лимит: ${state.status.max_parallel ?? "—"} операций</span></div>` +
+        `<div class="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 px-5 py-4"><p class="text-xs leading-5 text-brand-700"><strong>GData SRK · v${esc(state.status.version||"0.10.0")}</strong>　Репликация между медиасерверами, PostgreSQL PITR, SRK Rescue и ВМ OpenStack/Tionix, oVirt, Proxmox и OpenNebula.</p><span class="text-xs text-brand-500">Лимит: ${state.status.max_parallel ?? "—"} операций</span></div>` +
         activity()
       : state.page === "activity"
         ? activity()
@@ -357,6 +357,7 @@ async function refresh() {
     const me=await api("/v1/me");
     const accessKey=JSON.stringify(me);if(state.accessKey!==accessKey){clearAccessView();state.accessKey=accessKey;}
     if(window.applyAccess) window.applyAccess(me);
+    if(window.refreshServiceCertificates) void window.refreshServiceCertificates(me);
     const [status, jobs, runs, nodes, audit] = await Promise.all(
       [
         "/v1/status",

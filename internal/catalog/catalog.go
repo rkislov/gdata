@@ -18,7 +18,8 @@ import (
 	"gdata/srk/internal/model"
 )
 
-const SchemaSQL = `CREATE TABLE IF NOT EXISTS srk_user_certificate_state(username text PRIMARY KEY,version integer NOT NULL);
+const SchemaSQL = `CREATE TABLE IF NOT EXISTS srk_service_certificates(role text NOT NULL,id text NOT NULL,document jsonb NOT NULL,PRIMARY KEY(role,id));
+ CREATE TABLE IF NOT EXISTS srk_user_certificate_state(username text PRIMARY KEY,version integer NOT NULL);
  CREATE TABLE IF NOT EXISTS srk_user_certificates(serial text PRIMARY KEY,username text NOT NULL,key_fingerprint text UNIQUE NOT NULL,issued_at timestamptz NOT NULL,document jsonb NOT NULL);
  CREATE INDEX IF NOT EXISTS srk_user_certificates_user ON srk_user_certificates(username);
  CREATE TABLE IF NOT EXISTS srk_users(username text PRIMARY KEY,version integer NOT NULL,document jsonb NOT NULL,password_hash bytea NOT NULL);
