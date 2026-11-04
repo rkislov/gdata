@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"gdata/srk/internal/catalog"
@@ -26,7 +27,7 @@ import (
 	"time"
 )
 
-var tables = []string{"srk_audit", "srk_jobs", "srk_kubernetes_checks", "srk_nodes", "srk_protection_settings", "srk_recovery_state", "srk_rescue_tokens", "srk_runs", "srk_user_certificate_state", "srk_user_certificates", "srk_users", "srk_wal_replications"}
+var tables = []string{"srk_audit", "srk_jobs", "srk_kubernetes_checks", "srk_nodes", "srk_protection_settings", "srk_recovery_state", "srk_rescue_tokens", "srk_runs", "srk_service_certificates", "srk_user_certificate_state", "srk_user_certificates", "srk_users", "srk_wal_replications"}
 
 type Manifest struct {
 	Format       int              `json:"format"`
@@ -56,7 +57,7 @@ func schemaHash() string {
 	return hex.EncodeToString(s[:])
 }
 func materialPaths(c config.Config) map[string]string {
-	out := map[string]string{"ca.crt": c.CA, "manager.crt": c.Cert, "manager.key": c.Key, "bootstrap.password": c.PasswordFile, "capability.key": c.CapabilityKeyFile, "revoked.json": c.Revoked, "personal-ca.key": c.PersonalCAKeyFile}
+	out := map[string]string{"ca.crt": c.CA, "manager.crt": c.Cert, "manager.key": c.Key, "bootstrap.password": c.PasswordFile, "capability.key": c.CapabilityKeyFile, "revoked.json": c.Revoked, "personal-ca.key": c.PersonalCAKeyFile, "service-ca.key": c.ServiceCAKeyFile}
 	if c.CatalogBackup != nil {
 		out["catalog-policy.json"] = filepath.Join(c.CatalogBackup.Directory, "policy.json")
 	}
@@ -83,6 +84,11 @@ func collect(c config.Config) (map[string][]byte, error) {
 		}
 		out[name] = b
 	}
+	cert, key, err := identity.ActivePEM(c)
+	if err != nil {
+		return nil, errors.New("cannot read active manager certificate")
+	}
+	out["manager.crt"], out["manager.key"] = cert, key
 	return out, nil
 }
 
@@ -120,6 +126,11 @@ func validateMaterials(h header) error {
 	if h.Config.PersonalCAKeyFile != "" {
 		if _, e = tls.X509KeyPair(h.Materials["ca.crt"], h.Materials["personal-ca.key"]); e != nil {
 			return errors.New("personal issuer recovery material mismatch")
+		}
+	}
+	if h.Config.ServiceCAKeyFile != "" {
+		if _, e = tls.X509KeyPair(h.Materials["ca.crt"], h.Materials["service-ca.key"]); e != nil {
+			return errors.New("service issuer recovery material mismatch")
 		}
 	}
 	return nil
@@ -163,6 +174,23 @@ func Export(ctx context.Context, db *catalog.Catalog, c config.Config, key []byt
 	}
 	if fmt.Sprint(actual) != fmt.Sprint(tables) {
 		return h.Manifest, errors.New("catalog table set does not match this SRK version")
+	}
+	// The filesystem credential and the repeatable-read registry must describe
+	// the same generation. Never publish an unrecoverable cross-generation backup.
+	var serviceRecord []byte
+	err := tx.QueryRow(ctx, "SELECT document FROM srk_service_certificates WHERE role='manager' AND id=$1", c.ID).Scan(&serviceRecord)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return h.Manifest, err
+	}
+	if err == nil && string(serviceRecord) != "null" {
+		var record model.ServiceCertificate
+		if err = json.Unmarshal(serviceRecord, &record); err != nil {
+			return h.Manifest, err
+		}
+		block, _ := pem.Decode(h.Materials["manager.crt"])
+		if block == nil || record.Fingerprint != identity.Fingerprint(block.Bytes) {
+			return h.Manifest, errors.New("manager certificate rotation in progress; retry catalog backup")
+		}
 	}
 	total := int64(0)
 	for _, table := range tables {

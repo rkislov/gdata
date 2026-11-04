@@ -65,7 +65,7 @@ func main() {
 	}
 }
 func help() {
-	fmt.Print(`GData SRK 0.9.2 — Copyright 2026 Кислов Роман Сергеевич — Apache 2.0
+	fmt.Print(`GData SRK 0.10.0 — Copyright 2026 Кислов Роман Сергеевич — Apache 2.0
 
 srk [--config FILE] [--endpoint URL] [--json] [--wait] [--timeout 30s] COMPONENT COMMAND
 
@@ -145,6 +145,10 @@ Setup commands:
   pki init --dir DIR --installation ID
   pki issue --dir DIR --installation ID --role ROLE --id ID [--hosts HOST,...]
   pki csr --key-out NEW_KEY --csr-out NEW_CSR
+  manager service-certificates                 Service expiry inventory and alerts
+  COMPONENT certificate status|renew           Local status / live key rotation
+  COMPONENT certificate install --cert FILE --key FILE  Install offline recovery pair
+  manager service-certificates adopt --file CERT --expected-serial SERIAL --reason TEXT
   manager certificates list|issue|revoke USER [--csr FILE --out CERT --version N --days 30 --overlap-hours 0 --serial SERIAL]
   manager restore-targets
   runs restore ID --restore-target TARGET --destination PATH_OR_URI
@@ -242,6 +246,57 @@ func run(args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
+	if command == "certificate" {
+		if component != c.Role || len(args) < 3 {
+			return usageError("own COMPONENT certificate status|renew required")
+		}
+		switch args[2] {
+		case "status":
+			if len(args) != 3 {
+				return usageError("certificate status")
+			}
+			return printValue(identity.CertificateInfo(c), *jsonOut)
+		case "renew":
+			if len(args) != 3 {
+				return usageError("certificate renew")
+			}
+			if e := service.RotateServiceCertificate(ctx, c); e != nil {
+				return e
+			}
+			return printValue(identity.CertificateInfo(c), *jsonOut)
+		case "install":
+			fs := flag.NewFlagSet("certificate install", flag.ContinueOnError)
+			certFile := fs.String("cert", "", "offline recovery certificate")
+			keyFile := fs.String("key", "", "offline recovery private key")
+			if e := fs.Parse(args[3:]); e != nil {
+				return e
+			}
+			if *certFile == "" || *keyFile == "" || fs.NArg() != 0 {
+				return usageError("certificate install --cert FILE --key FILE")
+			}
+			keyInfo, e := os.Stat(*keyFile)
+			if e != nil {
+				return e
+			}
+			if keyInfo.Mode().Perm()&0077 != 0 {
+				return usageError("recovery private key must have mode 0600 or 0400")
+			}
+			cert, e := os.ReadFile(*certFile)
+			if e != nil {
+				return e
+			}
+			private, e := os.ReadFile(*keyFile)
+			if e != nil {
+				return e
+			}
+			if e = identity.RecoverServiceCertificate(c, string(cert), private); e != nil {
+				return e
+			}
+			return printValue(identity.CertificateInfo(c), *jsonOut)
+		default:
+			return usageError("certificate status|renew|install required")
+		}
+	}
 	cl, e := identity.Client(c, identity.Peer{Role: component})
 	if e != nil {
 		return e
@@ -258,6 +313,14 @@ func run(args []string) error {
 	var body any
 	expectRun := false
 	switch command {
+	case "service-certificates":
+		if component != "manager" {
+			return usageError("manager service-certificates")
+		}
+		if len(args) > 2 {
+			return adoptServiceCertificate(ctx, cl, base, args[2:], *jsonOut)
+		}
+		path = "/v1/service-certificates"
 	case "catalog-backups":
 		if component != "manager" {
 			return usageError("manager catalog-backups required")

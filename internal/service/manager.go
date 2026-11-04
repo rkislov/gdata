@@ -127,6 +127,7 @@ func (m *Manager) Handler() http.Handler {
 	m.accessRoutes(mux)
 	m.catalogBackupRoutes(mux)
 	m.certificateRoutes(mux)
+	m.serviceCertificateRoutes(mux)
 	m.restoreTargetRoutes(mux)
 	m.kubernetesRoutes(mux)
 	m.protectionRoutes(mux)
@@ -257,6 +258,8 @@ func (m *Manager) Handler() http.Handler {
 			return
 		}
 		n.LastSeen = time.Now().UTC()
+		leaf := r.TLS.PeerCertificates[0]
+		n.Certificate = &model.CertificateObservation{Serial: leaf.SerialNumber.String(), ExpiresAt: leaf.NotAfter, ObservedAt: n.LastSeen}
 		if e = m.DB.PutNode(r.Context(), n); e != nil {
 			Fail(w, 500, errors.New("catalog write failed"))
 			return
@@ -796,9 +799,12 @@ func (m *Manager) Run(ctx context.Context) error {
 	defer cancel()
 	done := make(chan struct{})
 	go func() { defer close(done); m.scheduler(engineCtx) }()
+	certificateDone := make(chan struct{})
+	go func() { defer close(certificateDone); m.certificateMonitor(engineCtx) }()
 	e := Serve(ctx, m.Config, m.Handler())
 	cancel()
 	<-done
+	<-certificateDone
 	return e
 }
 func (m *Manager) scheduler(ctx context.Context) {

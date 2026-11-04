@@ -24,6 +24,8 @@ type CatalogBackupConfig struct {
 }
 
 type Config struct {
+	ServiceCertificates      *ServiceCertificateConfig         `json:"service_certificates,omitempty"`
+	ServiceCAKeyFile         string                            `json:"service_ca_key_file,omitempty"`
 	CatalogBackup            *CatalogBackupConfig              `json:"catalog_backup,omitempty"`
 	PersonalCAKeyFile        string                            `json:"personal_ca_key_file,omitempty"`
 	Kubernetes               map[string]kubernetes.Profile     `json:"kubernetes,omitempty"`
@@ -88,6 +90,9 @@ func Load(path string) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if err := c.validateServiceCertificates(); err != nil {
+		return err
+	}
 	if c.CatalogBackup != nil {
 		if c.Role != "manager" || !filepath.IsAbs(c.CatalogBackup.Directory) || !filepath.IsAbs(c.CatalogBackup.KeyFile) {
 			return errors.New("catalog backup requires manager role and absolute directory/key paths")
@@ -182,7 +187,7 @@ func (c Config) Validate() error {
 			return e
 		}
 	}
-	for _, p := range []string{c.Key, c.PasswordFile, c.CapabilityKeyFile, c.PersonalCAKeyFile} {
+	for _, p := range []string{c.Key, c.PasswordFile, c.CapabilityKeyFile, c.PersonalCAKeyFile, c.ServiceCAKeyFile} {
 		if p == "" {
 			continue
 		}

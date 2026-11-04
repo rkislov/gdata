@@ -201,6 +201,8 @@ func Restore(ctx context.Context, r io.Reader, key []byte, o RestoreOptions) (ou
 	cfg.CapabilityKeyFile = at("capability.key")
 	cfg.Revoked = at("revoked.json")
 	cfg.PersonalCAKeyFile = at("personal-ca.key")
+	cfg.ServiceCAKeyFile = at("service-ca.key")
+	cfg.ServiceCertificates = nil // A new writable store is configured after recovery review.
 	q := uri.Query()
 	q.Set("search_path", o.Schema)
 	uri.RawQuery = q.Encode()

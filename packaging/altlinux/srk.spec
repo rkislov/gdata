@@ -1,5 +1,5 @@
 Name: gdata-srk
-Version: 0.9.2
+Version: 0.10.0
 Release: alt1
 Summary: Distributed backup system with a web interface
 License: Apache-2.0
@@ -59,5 +59,8 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %_docdir/%name-%version
 
 %changelog
-* Mon Nov 02 2026 Roman Kislov <roman@kislovs.ru> 0.9.2-alt1
+* Wed Nov 04 2026 Roman Kislov <roman@kislovs.ru> 0.10.0-alt1
+- Service certificate expiry alerts and automatic live key rotation.
+
+* Mon Nov 02 2026 Roman Kislov <roman@kislovs.ru> 0.10.0-alt1
 - Initial ALT Linux 10 (p10) x86_64 package.

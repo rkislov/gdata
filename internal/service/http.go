@@ -85,7 +85,7 @@ func Call(ctx context.Context, cl *http.Client, method, endpoint string, body an
 	return nil
 }
 func LocalStatus(c config.Config) map[string]any {
-	return map[string]any{"id": c.ID, "role": c.Role, "installation": c.Installation, "version": model.Version, "status": "ready", "time": time.Now().UTC(), "host": telemetry.Snapshot()}
+	return map[string]any{"id": c.ID, "role": c.Role, "installation": c.Installation, "version": model.Version, "status": "ready", "time": time.Now().UTC(), "host": telemetry.Snapshot(), "certificate": identity.CertificateInfo(c)}
 }
 func Secure(c config.Config, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +126,11 @@ func Serve(ctx context.Context, c config.Config, h http.Handler) error {
 	if c.Listen == "" {
 		return errors.New("listen address required")
 	}
+	lifecycleCtx, stopLifecycle := context.WithCancel(ctx)
+	defer stopLifecycle()
+	lifecycleDone := make(chan struct{})
+	go func() { defer close(lifecycleDone); certificateLifecycle(lifecycleCtx, c) }()
+	defer func() { stopLifecycle(); <-lifecycleDone }()
 	server := &http.Server{Addr: c.Listen, Handler: Secure(c, h), TLSConfig: t, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 * 1024}
 	server.BaseContext = func(net.Listener) context.Context { return ctx }
 	errch := make(chan error, 1)

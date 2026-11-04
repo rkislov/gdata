@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const Version = "0.9.2"
+const Version = "0.10.0"
 
 func ID() string {
 	b := make([]byte, 16)
@@ -91,11 +91,12 @@ type Result struct {
 	EffectiveMode     string                 `json:"effective_mode"`
 }
 type Node struct {
-	ID       string         `json:"id"`
-	Role     string         `json:"role"`
-	URL      string         `json:"url"`
-	LastSeen time.Time      `json:"last_seen"`
-	Status   map[string]any `json:"status"`
+	Certificate *CertificateObservation `json:"certificate,omitempty"`
+	ID          string                  `json:"id"`
+	Role        string                  `json:"role"`
+	URL         string                  `json:"url"`
+	LastSeen    time.Time               `json:"last_seen"`
+	Status      map[string]any          `json:"status"`
 }
 type Audit struct {
 	ID     string    `json:"id"`
