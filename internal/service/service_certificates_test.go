@@ -457,3 +457,35 @@ func TestServiceCertificateAdministrativeRecovery(t *testing.T) {
 	}
 	_ = entries
 }
+
+func TestServiceIssuerFailureDoesNotConsumeGeneration(t *testing.T) {
+	cfg := configs(t)
+	mc := cfg["manager"]
+	mc.ServiceCAKeyFile = filepath.Join(t.TempDir(), "missing-ca.key")
+	m := managerTest(t, mc)
+	server := tlsServer(t, mc, m.Handler())
+	ac := rotatingConfig(t, cfg["agent"])
+	cl, e := identity.Client(ac)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer cl.CloseIdleConnections()
+	csr, _, e := identity.PendingCSR(ac)
+	if e != nil {
+		t.Fatal(e)
+	}
+	request := map[string]any{"csr": csr, "lifetime_hours": 4}
+	accessCall(t, cl, "POST", server.URL+"/v1/service-certificates/renew", request, 400)
+	records, e := m.DB.ServiceCertificates(context.Background())
+	if e != nil || len(records) != 0 {
+		t.Fatal("failed signing consumed a generation", e)
+	}
+	issuerKey, e := os.ReadFile(filepath.Join(filepath.Dir(ac.CA), "ca.key"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(mc.ServiceCAKeyFile, issuerKey, 0600); e != nil {
+		t.Fatal(e)
+	}
+	accessCall(t, cl, "POST", server.URL+"/v1/service-certificates/renew", request, 201)
+}

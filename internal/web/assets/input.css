@@ -11,6 +11,7 @@
 @source "./access.js";
 @source "./access-recovery.js";
 @source "./catalog-backup.js";
+@source "./service-certificates.js";
 @theme {
   --color-brand-50: #f0f5e9;
   --color-brand-100: #e1ecd8;
