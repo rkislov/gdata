@@ -175,15 +175,22 @@ func (m *Manager) serviceCertificateRoutes(mux *http.ServeMux) {
 			return
 		}
 		issued := model.ServiceCertificate{Role: p.Role, ID: p.ID, PreviousSerial: peer.SerialNumber.String(), KeyFingerprint: identity.Fingerprint(req.RawSubjectPublicKeyInfo)}
+		var signingError error
 		issued, e = m.DB.RenewServiceCertificate(r.Context(), identity.Fingerprint(peer.Raw), issued, func() (model.ServiceCertificate, error) {
 			cert, leaf, err := identity.SignServiceCSR(m.Config.CA, m.Config.ServiceCAKeyFile, peer, in.CSR, in.LifetimeHours)
 			if err != nil {
+				signingError = err
 				return issued, err
 			}
 			issued.Certificate, issued.Serial, issued.Fingerprint, issued.ExpiresAt = cert, leaf.SerialNumber.String(), identity.Fingerprint(leaf.Raw), leaf.NotAfter
 			return issued, nil
 		})
 		if e != nil {
+			if signingError != nil {
+				slog.Warn("service certificate issuance failed", "identity", p.Role+"/"+p.ID, "error", signingError)
+				Fail(w, 400, errors.New("invalid CSR, lifetime or service issuer configuration"))
+				return
+			}
 			Fail(w, 409, errors.New("certificate generation conflict; retry with the original pending key or recover administratively"))
 			return
 		}
