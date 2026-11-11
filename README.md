@@ -18,11 +18,12 @@
 
 Версия 0.7 добавляет управление бэкапом и восстановлением ВМ OpenStack/Tionix и oVirt в веб-интерфейсе, S3-источник MinIO/Ceph и логические дампы MySQL/MariaDB. Дедупликация, защищённая связь, очередь и журнал общие для всех источников. Подробности настройки и ограничения: [docs/sources-v07.md](docs/sources-v07.md). Добавлены HTTPS-бэкап и восстановление Proxmox без PBS через WebDAV СРК и OpenNebula 7.4 через OneBEX: [настройка и ограничения](docs/proxmox-opennebula.md).
 
-## Документация и ALT Linux 10
+## Документация и пакеты Linux
 
 - [Инструкция пользователя](docs/user-guide.md): вход, резервирование, восстановление, CLI и отчёты.
 - [Инструкция администратора](docs/admin-guide.md): установка, PKI, systemd, доступ, эксплуатация и аварийное восстановление.
 - [Сборки ALT Linux 10 x86_64](https://github.com/rkislov/gdata/releases): RPM, архив и SHA256SUMS. Локальная сборка: `make altlinux`.
+- [Пакеты для ALT p11, РЕД ОС, Astra Linux, Ubuntu и CentOS Stream](docs/linux-packages.md)
 - [Презентация со свежими скриншотами](docs/presentation/GData-SRK-0.9.2.pptx): 10 слайдов о работе системы и установке.
 - [Участие в разработке](CONTRIBUTING.md): Issues и PR из forks.
 

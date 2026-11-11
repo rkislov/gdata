@@ -1,0 +1,14 @@
+#!/bin/sh
+# Copyright 2026 Кислов Роман Сергеевич
+# SPDX-License-Identifier: Apache-2.0
+set -eu
+
+if [ "$1" = configure ]; then
+    getent group srk >/dev/null || addgroup --system srk
+    getent passwd srk >/dev/null || adduser --system --ingroup srk --home /var/lib/srk --no-create-home srk
+    install -d -m 0750 -o root -g srk /etc/srk
+    install -d -m 0750 -o srk -g srk /var/lib/srk /var/log/srk
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload
+    fi
+fi

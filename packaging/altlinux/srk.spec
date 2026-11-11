@@ -1,6 +1,6 @@
 Name: gdata-srk
 Version: 0.10.0
-Release: alt1
+Release: %{?srk_release}%{!?srk_release:alt1}
 Summary: Distributed backup system with a web interface
 License: Apache-2.0
 Group: Archiving/Backup
@@ -13,6 +13,7 @@ Requires(preun): systemd
 AutoReq: no
 AutoProv: no
 %define debug_package %{nil}
+%define _build_id_links none
 %define _unpackaged_files_terminate_build 1
 
 %description
@@ -24,7 +25,7 @@ be configured separately. Services are not started automatically.
 %setup -q
 
 %build
-# Static binary is built from the matching source tree by build-altlinux.sh.
+# The packaging script builds the static binary from the matching source tree.
 
 %install
 install -Dm755 srk %buildroot%_bindir/srk

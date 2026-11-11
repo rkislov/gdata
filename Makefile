@@ -25,3 +25,7 @@ rescue-iso:
 .PHONY: altlinux
 altlinux:
 	sh scripts/build-altlinux.sh
+
+.PHONY: linux-packages
+linux-packages:
+	sh scripts/build-linux-packages.sh
